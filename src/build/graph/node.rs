@@ -8,7 +8,11 @@ use std::{
 
 use globset::GlobSet;
 
-use crate::{IMPORT_REGEX, PACKAGE_REGEX, build::graph::package::Package, utils::fs};
+use crate::{
+    IMPORT_REGEX, PACKAGE_REGEX,
+    build::graph::{class_info::ClassInfo, package::Package},
+    utils::fs,
+};
 
 #[derive(Debug)]
 pub struct NodeFile {
@@ -17,6 +21,7 @@ pub struct NodeFile {
     pub path: PathBuf,
     pub dependencies: HashSet<Package>,
     pub meta: Metadata,
+    pub info: Option<ClassInfo>,
 }
 
 #[derive(Debug)]
@@ -99,6 +104,7 @@ impl Node {
             } else {
                 ""
             };
+            let info = ClassInfo::create(&contents);
 
             let dependencies: HashSet<Package> = IMPORT_REGEX
                 .captures_iter(&contents)
@@ -125,6 +131,7 @@ impl Node {
                 &path.display(),
             );
             Ok(Node::File(NodeFile {
+                info,
                 name,
                 package,
                 path: path.to_path_buf(),

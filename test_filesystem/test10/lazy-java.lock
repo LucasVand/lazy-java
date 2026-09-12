@@ -896,12 +896,3 @@ version = "2.21"
 group = "tools.jackson.core"
 artifact = "jackson-core"
 version = "3.1.4"
-
-[[package-local]]
-name = "p1"
-file_name = "build.jar"
-packaging = "jar"
-root = true
-scope = "compile"
-path = "/Users/lucasvanderwielen/Projects/Rust/lazy-java/test_filesystem/test10/target/build.jar"
-annotations = []

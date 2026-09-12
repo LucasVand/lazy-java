@@ -5,7 +5,6 @@ use std::{
 };
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use regex::Captures;
 use walkdir::{DirEntry, WalkDir};
 
 use crate::{CLASS_REGEX, MAIN_REGEX, PACKAGE_REGEX, utils::fs};
@@ -26,7 +25,6 @@ pub fn find_main_classes(src: &Path, excluded: &[String]) -> Result<Vec<MainClas
 
     for file in java_files {
         let content = fs::read_to_string(&file)?;
-        let class = CLASS_REGEX.captures(&content);
         let package_captures = PACKAGE_REGEX.captures(&content);
 
         let package = match package_captures {
@@ -37,26 +35,55 @@ pub fn find_main_classes(src: &Path, excluded: &[String]) -> Result<Vec<MainClas
             None => "",
         };
 
-        if let Some(class) = class {
-            let mut found_classes = find_main_class(class, package, &file)?;
+        if let Some(class) = CLASS_REGEX.captures(&content) {
+            let classname = class.name("class").unwrap().as_str().to_string();
+            if let Some(body) = class_body(&content, class.get_match().end() - 1) {
+                let mut found_classes = find_main_class(&classname, &body, package, &file)?;
 
-            if !found_classes.is_empty() {
-                log::debug!("Found {} main class(es) in {:?}", found_classes.len(), file);
+                if !found_classes.is_empty() {
+                    log::debug!(
+                        "Found {} main class(es) in {:?}",
+                        found_classes.len(),
+                        file
+                    );
+                }
+                main_classes.append(&mut found_classes);
             }
-            main_classes.append(&mut found_classes);
         }
     }
     log::debug!("Total main classes found: {}", main_classes.len());
     Ok(main_classes)
 }
+
+/// Returns the text between the opening brace at `open_brace` and its matching
+/// closing brace (exclusive), using brace counting so nested types and method
+/// bodies are handled correctly.
+fn class_body(src: &str, open_brace: usize) -> Option<String> {
+    if src.as_bytes().get(open_brace) != Some(&b'{') {
+        return None;
+    }
+    let mut depth = 0u32;
+    for (i, b) in src.as_bytes()[open_brace..].iter().copied().enumerate() {
+        match b {
+            b'{' => depth += 1,
+            b'}' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(src[open_brace + 1..open_brace + i].to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 fn find_main_class(
-    class: Captures<'_>,
+    classname: &str,
+    content: &str,
     package: &str,
     file: &PathBuf,
 ) -> Result<Vec<MainClass>, io::Error> {
-    let classname = class.name("class").unwrap().as_str();
-    let content = class.name("content").unwrap().as_str();
-
     let mut removed_inner_content = content.to_string();
     let main = MAIN_REGEX.captures(content);
 
@@ -70,7 +97,7 @@ fn find_main_class(
         };
 
         let class = MainClass {
-            path: file.to_path_buf().clone(),
+            path: file.to_path_buf(),
             classname: classname.to_string(),
             full_package_name: full_package,
         };
@@ -78,12 +105,21 @@ fn find_main_class(
         main_vec.push(class);
     }
 
-    if let Some(inner_class) = CLASS_REGEX.captures(&removed_inner_content) {
-        let mut pack = package.to_string();
-        pack.push_str(&format!(".{}", &classname));
+    for inner in CLASS_REGEX.captures_iter(&removed_inner_content) {
+        let inner_name = inner.name("class").unwrap().as_str().to_string();
+        if let Some(inner_body) = class_body(
+            &removed_inner_content,
+            inner.get_match().end() - 1,
+        ) {
+            let mut pack = package.to_string();
+            if !pack.is_empty() {
+                pack.push('.');
+            }
+            pack.push_str(classname);
 
-        let mut classes = find_main_class(inner_class, &pack, file)?;
-        main_vec.append(&mut classes);
+            let mut classes = find_main_class(&inner_name, &inner_body, &pack, file)?;
+            main_vec.append(&mut classes);
+        }
     }
 
     Ok(main_vec)

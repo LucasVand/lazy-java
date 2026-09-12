@@ -64,7 +64,10 @@ pub static MAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 });
 pub static CLASS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     let re = RegexBuilder::new(
-        r#"^\s*(?:(?:public|static|abstract|final)\s+)*class\s+(?<class>\S*)\s+(?:extend.*)*\s*(?:implements.*)*\s*\{(?<content>[\s\S]*)\}"#,
-    ).multi_line(true).unicode(true).build();
+        r"(?m)^\s*(?:(?:public|protected|private|static|abstract|final|sealed|non-sealed|default|strictfp|synchronized)\s+|@[\w$][\w$.]*(?:\s*\([^)]*\))?\s+)*(?<type>class|interface|record|enum|@interface)\s+(?<class>[A-Za-z_$][A-Za-z0-9_$]*)(?<generics><[^>]*>)?(?<recordParams>\(\s*(?:[^()]|\([^()]*\))*\s*\))?(?:\s+extends\s+(?<extends>[^{\n]+?))?(?:\s+implements\s+(?<implements>[^{\n]+?))?(?:\s+permits\s+(?<permits>[^{\n]+?))?\s*\{",
+    )
+    .multi_line(true)
+    .unicode(true)
+    .build();
     re.unwrap()
 });
