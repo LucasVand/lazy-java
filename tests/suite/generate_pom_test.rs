@@ -7,17 +7,22 @@ fn generate_pom_includes_deps_and_annotation_processors() -> Result<(), Box<dyn 
     let dest = &p.dir;
 
     lazy_java(dest)?
-        .args(["add", "org.apache.commons", "commons-lang3"])
+        .args(["add", "org.apache.commons", "commons-lang3", "3.20.0"])
         .assert()
         .success();
 
     lazy_java(dest)?
-        .args(["add", "com.google.auto.value", "auto-value-annotations"])
+        .args([
+            "add",
+            "com.google.auto.value",
+            "auto-value-annotations",
+            "1.11.1",
+        ])
         .assert()
         .success();
 
     lazy_java(dest)?
-        .args(["add", "com.google.auto.value", "auto-value"])
+        .args(["add", "com.google.auto.value", "auto-value", "1.11.1"])
         .assert()
         .success();
 

@@ -43,7 +43,7 @@ fn build_fat_jar_self_contained() -> Result<(), Box<dyn std::error::Error>> {
 
     // Add a dependency and build
     lazy_java(dest)?
-        .args(["add", "org.apache.commons", "commons-lang3"])
+        .args(["add", "org.apache.commons", "commons-lang3", "3.20.0"])
         .assert()
         .success();
 

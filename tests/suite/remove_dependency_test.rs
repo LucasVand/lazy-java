@@ -5,12 +5,13 @@ fn remove_dependency_cleans_config_and_lock() -> Result<(), Box<dyn std::error::
     let p = Project::from_fixture("with-dependency")?;
     let dest = &p.dir;
 
-    // Add commons-lang3
+    // Add spring-boot-starter-jdbc (pinned to avoid latest drift)
     lazy_java(dest)?
         .args([
             "add",
             "org.springframework.boot",
             "spring-boot-starter-jdbc",
+            "4.1.0",
         ])
         .assert()
         .success();

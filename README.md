@@ -1,13 +1,222 @@
-# Lazy Java
-The easiest cli tool for managing java projects. Makes compiling, running, creating, and managing java projects as easy as possible. With simple command syntax and optional interactive prompts to guide you through anything you might not know.
+# lazy-java
+
+Simple and Intuitive Java build tool — a Cargo-like experience for Java. Compile, run, manage dependencies, and scaffold projects without wrestling with Maven or Gradle.
+
+> `lazy-java` wraps `javac`/`java`, resolves dependencies from Maven Central, and gives you incremental builds, resource handling, and IDE support out of the box.
 
 ## Highlights
-Main Features
-* Compiles Java Projects
-* Runs Java Main Classes
-* Interactive Interfaces
-* Project Management
+
+- **Zero-config Java builds** — `lazy-java build` and `lazy-java run` with incremental compilation
+- **Cargo-style dependency management** — `add`/`remove`/`sync` with a `lazy-java.lock` and Maven Central resolution
+- **Fast incremental builds** — dependency graph from imports (including `static` and `*` wildcard imports), same-package detection, and stale-file rebuilding
+- **Maven interop** — `import pom` and `generate pom` for smooth migration
+- **Batteries included** — resources, annotation processors, external file resources, local JAR dependencies, multi-JDK `--release`, fat jars, classpath/LSP generation
+
+## Requirements
+
+- Rust toolchain (to install/build `lazy-java`)
+- JDK 11+ (tested on JDK 25 in CI; `javac`/`java`/`jar` on `PATH` or via `JAVA_HOME`)
 
 ## Installation
-### Cargo
-Clone the repo and you can build and run it for yourself
+
+### From crates.io (recommended once published)
+
+```sh
+cargo install lazy-java
+```
+
+### From source
+
+```sh
+git clone https://github.com/LucasVand/lazy-java
+cd lazy-java
+cargo install --path .
+# or run without installing
+cargo run -- --help
+```
+
+Verify:
+
+```sh
+lazy-java --help
+lazy-java --version
+```
+
+## Quick Start
+
+```sh
+# create a new project (interactive prompts if flags omitted)
+lazy-java create --name my-app --git true
+cd my-app
+
+# project layout
+# .
+# ├── lazy-java.toml
+# ├── pom.xml            # marker for IDE root detection (do not remove)
+# ├── src/Main.java
+# └── target/
+#     ├── bin/           # compiled .class files
+#     └── lib/           # resolved dependency JARs
+
+# build (incremental)
+lazy-java build
+lazy-java build --timings --show-compiled
+
+# run (builds first unless --no-build)
+lazy-java run
+lazy-java run com.example.Main -- arg1 arg2
+lazy-java run --jar --no-build  # run from pre-built jar
+
+# add a dependency (latest version if omitted)
+lazy-java add org.apache.commons commons-lang3
+lazy-java add org.apache.commons commons-lang3 3.14.0 compile
+
+# find all main classes
+lazy-java find
+```
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `lazy-java create [-n <name>] [-g <true\|false>] [-b]` | Scaffold a new project. `--bare` skips the example `Main.java`. |
+| `lazy-java build [--build-all] [--timings] [--show-compiled] [--release <ver>] [--javac-args ...]` | Incremental compile to `target/bin`. Subcommands: `dependencies`, `dependents`, `stale`, `classpath`, `jar`. |
+| `lazy-java build jar [--entry-point <pkg.Class>] [--fat]` | Package `target/bin` (+ `target/lib` if `--fat`) into a JAR. |
+| `lazy-java build classpath` | Regenerate `.classpath` for JDTLS/Eclipse. |
+| `lazy-java run [CLASS] [ARGS...] [-n] [-j]` | Compile then run `CLASS` (or `setup.main_class`). `-n/--no-build` skips compile, `-j/--jar` runs the JAR. |
+| `lazy-java clean` | Remove `target/bin` build output. |
+| `lazy-java find` | List all classes containing `public static void main`. |
+| `lazy-java add <group> <artifact> [version] [scope]` | Add a Maven dependency to `lazy-java.toml` and sync `target/lib`. |
+| `lazy-java remove <group> <artifact>` | Remove a dependency and prune `target/lib`. |
+| `lazy-java sync` | Sync `target/lib` with `lazy-java.lock`. |
+| `lazy-java generate pom` | Generate `pom.xml` from `lazy-java.lock` (for Maven interop). |
+| `lazy-java import pom [--pom-path pom.xml] [--overwrite] [--only-dependencies]` | Import a `pom.xml` into `lazy-java.toml`. |
+
+Global flags (all commands):
+
+```
+-v, --verbose...        Increase log verbosity (-v info, -vv debug, -vvv trace)
+    --source <SOURCE>   Override source directory (default: src)
+    --target <TARGET>   Override target directory (default: target)
+    --dry-run           Show what would change without writing files
+    --release <VER>     JDK release for javac --release (e.g. 17, 25)
+```
+
+Examples:
+
+```sh
+# force full rebuild with timings
+lazy-java build --build-all --timings
+
+# inspect the build graph
+lazy-java build dependencies
+lazy-java build dependents
+lazy-java build stale
+
+# JAR
+lazy-java build jar --entry-point com.example.Main
+lazy-java build jar --fat --entry-point com.example.Main
+
+# dependency scopes
+lazy-java add org.junit.jupiter junit-jupiter 5.10.0 provided
+lazy-java remove org.junit.jupiter junit-jupiter
+
+# Maven interop
+lazy-java import pom --pom-path ./pom.xml --overwrite
+lazy-java generate pom
+
+# dry-run any mutating command
+lazy-java add com.google.guava guava 32.1.2-jre --dry-run
+lazy-java create --name demo --dry-run
+```
+
+## Configuration — `lazy-java.toml`
+
+Generated by `lazy-java create` and preserved with comments/formatting via `toml_edit`. Minimal example:
+
+```toml
+[project]
+name = "my-app"
+group = "com.example"
+artifact = "my-app"
+version = "1.0.0"
+
+[setup]
+# src = "src"           # default
+# target = "target"     # default
+# main_class = "com.example.Main"
+# release = "17"        # javac --release
+exclude = ["**/Broken.java"]
+
+[resources]
+exclude = ["**/secret.txt"]
+external = ["../shared/config.json", "external.txt"]
+
+# processors auto-detected from sources, or declared explicitly:
+# [processors]
+# MyAnnotation = { path = "./src/processor/MyAnnotation.java", kind = "annotation", package = "processor" }
+# MyProcessor  = { path = "./src/processor/MyProcessor.java", kind = "processor", package = "processor" }
+
+[dependencies]
+commons-lang3 = { group = "org.apache.commons", version = "3.14.0" }
+# scope: compile (default) | runtime | provided
+junit = { group = "org.junit.jupiter", version = "5.10.0", scope = "provided" }
+# local JAR
+my-annot = { path = "./lib/myannot.jar" }
+```
+
+**Dependency forms:**
+
+- Remote (Maven Central): `{ group = "g", version = "v" [, scope = "compile|runtime|provided"] }` — resolved transitively, downloaded to `target/lib`, locked in `lazy-java.lock`.
+- Local JAR: `{ path = "./lib/foo.jar" [, scope = "..."] }` — must be a `.jar`, path is canonicalized; changes trigger rebuilds.
+
+**Resources:** Everything under `src/` (except excluded patterns) is copied to `target/bin` preserving relative paths. `resources.external` can point inside or outside the project root (e.g., `../shared/file.txt`) and is also copied.
+
+**Processors:** Annotation processors are auto-discovered from `META-INF/services/javax.annotation.processing.Processor` and from Java sources; explicit `[processors]` entries override detection.
+
+## How It Works
+
+- **Incremental compilation:** Parses `package`/`import` (including `static` and wildcard `*`) to build a file-level dependency graph. Only stale files and their dependents are recompiled. Same-package dependencies are handled without explicit imports.
+- **Lock file:** `lazy-java.lock` pins exact versions and transitive deps (like `Cargo.lock`). `lazy-java sync` reconciles `target/lib` with the lock file.
+- **File locking:** Prevents concurrent `lazy-java` commands from corrupting `target/`.
+- **LSP/Eclipse:** `lazy-java build classpath` (and automatic sync on config change) maintains `.classpath` for JDTLS/Eclipse project imports.
+- **Jar packaging:** `lazy-java build jar` zips `target/bin` (and optionally `target/lib` for `--fat`) with a `Main-Class` manifest entry.
+
+## Project Structure
+
+```
+my-app/
+├── lazy-java.toml      # project config + dependencies
+├── lazy-java.lock      # resolved exact versions (commit this)
+├── pom.xml             # marker + generated POM (for IDEs/Maven)
+├── src/
+│   └── Main.java
+└── target/
+    ├── bin/            # compiled classes + copied resources
+    ├── lib/            # dependency JARs
+    └── .lazy-java-build # incremental build metadata
+```
+
+## CI & Publishing
+
+This repo publishes to [crates.io](https://crates.io/crates/lazy-java) on version tags via OIDC trusted publishing:
+
+- Workflow: `.github/workflows/deploy.yml` — triggers on `push.tags: ["v*"]` and runs `cargo publish` with `rust-lang/crates-io-auth-action`.
+- Required `Cargo.toml` metadata (`authors`, `description`, `repository`, `license`, `keywords`) is already configured.
+- To cut a release: `git tag v0.1.1 && git push origin v0.1.1` (ensure Trusted Publishing is linked on crates.io first).
+
+Other workflows: `build` (clippy + build), `test` (matrix: ubuntu/macos/windows + JDK 25), `spell-check` (codespell).
+
+## Contributing
+
+```sh
+cargo test          # all tests (needs JDK)
+cargo clippy --all-targets -- -A clippy::all -D clippy::disallowed_methods -D clippy::disallowed_types
+cargo build
+```
+
+Please run `cargo test` and `codespell --toml codespell.toml src tests` before opening a PR. E2E tests use fixtures in `tests/fixtures/` and shared helpers in `tests/support/mod.rs`.
+
+## License
+
+MIT — see `Cargo.toml` (`license = "MIT"`). Repository: https://github.com/LucasVand/lazy-java
