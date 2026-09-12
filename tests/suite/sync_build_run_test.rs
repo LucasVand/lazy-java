@@ -9,7 +9,7 @@ fn sync_build_run_with_maven_dependency() -> Result<(), Box<dyn std::error::Erro
 
     // Step 1: Add dependency — resolves from Maven, downloads JAR, creates lock file
     lazy_java(dest)?
-        .args(["add", "org.apache.commons", "commons-lang3"])
+        .args(["add", "org.apache.commons", "commons-lang3", "3.20.0"])
         .assert()
         .success();
 
@@ -44,7 +44,7 @@ fn sync_build_run_with_maven_dependency() -> Result<(), Box<dyn std::error::Erro
 
     // Step 4: Adding a new remote dependency must force a full rebuild.
     lazy_java(dest)?
-        .args(["add", "org.apache.commons", "commons-collections4"])
+        .args(["add", "org.apache.commons", "commons-collections4", "4.4"])
         .assert()
         .success();
 
@@ -57,7 +57,7 @@ fn sync_build_run_with_maven_dependency() -> Result<(), Box<dyn std::error::Erro
     // Step 5: Adding a remote dependency that bundles an annotation processor
     // (lands in lib-annotations) must also force a full rebuild.
     lazy_java(dest)?
-        .args(["add", "org.immutables", "value"])
+        .args(["add", "org.immutables", "value", "2.10.1"])
         .assert()
         .success();
 

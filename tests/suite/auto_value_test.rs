@@ -9,13 +9,18 @@ fn auto_value_generates_code_and_runs() -> Result<(), Box<dyn std::error::Error>
 
     // Step 1: Add the annotation dependency
     lazy_java(dest)?
-        .args(["add", "com.google.auto.value", "auto-value-annotations"])
+        .args([
+            "add",
+            "com.google.auto.value",
+            "auto-value-annotations",
+            "1.11.1",
+        ])
         .assert()
         .success();
 
     // Step 2: Add the annotation processor dependency
     lazy_java(dest)?
-        .args(["add", "com.google.auto.value", "auto-value"])
+        .args(["add", "com.google.auto.value", "auto-value", "1.11.1"])
         .assert()
         .success();
 
