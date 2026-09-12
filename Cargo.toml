@@ -6,6 +6,14 @@ name = "lazy-java"
 version = "0.1.0"
 edition = "2024"
 
+authors = ["lucasvanderwielen@icloud.com"]
+description = "Simple and Intuitive Java build tool"
+readme = "README.md"
+repository = "https://github.com/LucasVand/lazy-java"
+license = "MIT" 
+
+keywords = ["java", "build", "tool", "utility", "cargo"]
+
 [dependencies]
 anyhow = "1.0.102"
 clap = { version = "4.5.60", features = ["derive"] }
